@@ -333,37 +333,46 @@ class Taxi:
       # journey. Below is a naive depth-first search implementation. You should be able
       # to do much better than this!
       def _planPath(self, origin, destination, **args):
-          # the list of explored paths. Recursive invocations pass in explored as a parameter
-          if 'explored' not in args:
-             args['explored'] = {}
-          # add this origin to the explored list
-          # explored is a dict purely so we can hash its index for fast lookup, so its value doesn't matter
-          args['explored'][origin] = None 
-          # the actual path we are going to generate
-          path = [origin]
-          # take the next node in the frontier, and expand it depth-wise               
-          if origin in self._map:
-             # the frontier of unexplored paths (from this Node
-             frontier = [node for node in self._map[origin].keys() if node not in args['explored']]
-             # recurse down to the next node. This will automatically create a depth-first
-             # approach because the recursion won't bottom out until no more frontier nodes
-             # can be generated 
-             for nextNode in frontier:
-                 path = path + self._planPath(nextNode, destination, explored=args['explored'])
-                 # stop early as soon as the destination has been found by any route.
-                 if destination in path:
-                    # validate path
-                    if len(path) > 1:
-                       try:
-                           # use a generator expression to find any invalid nodes in the path
-                           badNode = next(pnode for pnode in path[1:] if pnode not in self._map[path[path.index(pnode)-1]].keys())
-                           raise IndexError("Invalid path: no route from ({0},{1}) to ({2},{3} in map".format(self._map[path.index(pnode)-1][0], self._map[path.index(pnode)-1][1], pnode[0], pnode[1]))
-                       except StopIteration:
-                           pass
-                    return path
-          # didn't reach the destination from any reachable node
-          # no need, therefore, to expand the path for the higher-level call, this is a dead end.
-          return [] 
+          def heuristic(a, b):
+              return abs(a[0] - b[0]) + abs(a[1] - b[1])
+          frontier = []
+          heapq.heappush(frontier, (0, origin))
+
+          came_from = {}
+          cost_so_far = {}
+
+          came_from[origin] = None
+          cost_so_far[origin] = 0
+
+          #A* function
+          while frontier:
+              _, current = heapq.heappop(frontier)
+              if current == destination:
+                  break
+              if current in self._map:
+                  for next_node, (direction, distance) in self._map[current].items():
+                      new_cost = cost_so_far[current] + distance
+
+                      if next_node not in cost_so_far or new_cost < cost_so_far[next_node]:
+                          cost_so_far[next_node] = new_cost
+                          priority = new_cost + heuristic(next_node, destination)
+                          heapq.heappush(frontier, (priority, next_node))
+                          came_from[next_node] = current
+          current = destination
+          path = []
+
+          if current not in came_from:
+              return []
+
+          while current != origin:
+              path.append(current)
+              current = came_from[current]
+          path.append(origin)
+          path.reverse()
+
+          return path
+
+
                 
       # TODO
       # this function decides whether to offer a bid for a fare. In general you can consider your current position, time,

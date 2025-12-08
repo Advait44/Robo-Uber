@@ -59,7 +59,6 @@ def runRoboUber(worldX, worldY, runTime, stop, junctions=None, streets=None, int
     threadRunTime = runTime
     threadTime = 0
 
-    # --- LOGGING SETUP START ---
     # Retrieve the current day index passed from the main loop
     current_day = args.get('currentDay', 0)
     log_filename = f"analysis_day_{current_day}.csv"
