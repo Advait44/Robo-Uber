@@ -381,26 +381,68 @@ class Taxi:
       # a hint that maybe some form of CSP solver with automated reasoning might be a good way of implementing this. But
       # other methodologies could work well. For best results you will almost certainly need to use probabilistic reasoning.
       def _bidOnFare(self, time, origin, destination, price):
-          NoCurrentPassengers = self._passenger is None
-          NoAllocatedFares = len([fare for fare in self._availableFares.values() if fare.allocated]) == 0
-          TimeToOrigin = self._world.travelTime(self._loc, self._world.getNode(origin[0], origin[1]))
-          TimeToDestination = self._world.travelTime(self._world.getNode(origin[0], origin[1]),
-                                                     self._world.getNode(destination[0], destination[1]))
-          FiniteTimeToOrigin = TimeToOrigin > 0
-          FiniteTimeToDestination = TimeToDestination > 0
-          CanAffordToDrive = self._account > TimeToOrigin
-          FairPriceToDestination = price > TimeToDestination
-          PriceBetterThanCost = FairPriceToDestination and FiniteTimeToDestination
-          FareExpiryInFuture = self._maxFareWait > self._world.simTime-time
-          EnoughTimeToReachFare = self._maxFareWait-self._world.simTime+time > TimeToOrigin
-          SufficientDrivingTime = FiniteTimeToOrigin and EnoughTimeToReachFare 
-          WillArriveOnTime = FareExpiryInFuture and SufficientDrivingTime
-          NotCurrentlyBooked = NoCurrentPassengers and NoAllocatedFares
-          CloseEnough = CanAffordToDrive and WillArriveOnTime
-          Worthwhile = PriceBetterThanCost and NotCurrentlyBooked 
-          Bid = CloseEnough and Worthwhile
-          return Bid
+          #Availability Check
+          if self._passenger is not None:
+              return False
 
+          for fare in self._availableFares.values():
+              if fare.allocated:
+                  return False
+
+          #Cost Calculation
+          currNode = self._loc
+          origNode = self._world.getNode(origin[0], origin[1])
+          destNode = self._world.getNode(destination[0], destination[1])
+
+          if origNode is None or destNode is None:
+              return False
+
+          timeToPickup = self._world.travelTime(currNode, origNode)
+          timeToDropoff = self._world.travelTime(origNode, destNode)
+
+          if timeToPickup < 0 or timeToDropoff < 0:
+              return False
+
+          #Profit Analysis
+          operational_cost = timeToPickup + timeToDropoff
+          gross_profit = price - operational_cost
+
+          #Probabilistic Reasoning (TUNED)
+          # Previous K=10 was too strict (killed all long-distance jobs).
+          # New K=40 means we are "optimistic" about traffic/competition.
+          # This keeps the probability high enough to justify bidding.
+          k = 40.0
+          probability_of_success = k / (k + timeToPickup)
+
+          # Expected Utility
+          expected_utility = probability_of_success * gross_profit
+
+          #Decision
+          # If it has POSITIVE expectation, take it.
+          # (Removed the >0.5 buffer to increase volume)
+          if expected_utility > 0:
+              return True
+
+          return False
+
+          #Expected Utility
+          # Cost = £1 per minute
+          operational_cost = timeToPickup + timeToDropoff
+
+          # Net Profit = Price - Cost
+          gross_profit = price - operational_cost
+
+          # Probability of Success (Models traffic/risk)
+          probability_of_success = 10.0 / (10.0 + timeToPickup)
+
+          # Expected Utility = P * V
+          expected_utility = probability_of_success * gross_profit
+
+          # Only bid if the mathematical expectation is positive
+          if expected_utility > 0.5:
+              return True
+
+          return False
 
 
 

@@ -192,24 +192,28 @@ class Dispatcher:
       '''
       # TODO - improve costing
       def _costFare(self, fare):
-          orig = self._parent.getNode(fare.origin[0], fare.origin[1])
-          dest = self._parent.getNode(fare.destination[0], fare.destination[1])
+        # 1. Get the map nodes
+        orig = self._parent.getNode(fare.origin[0], fare.origin[1])
+        dest = self._parent.getNode(fare.destination[0], fare.destination[1])
 
-          if orig is None or dest is None:
-              return 147.3
+        # Safety check for invalid nodes
+        if orig is None or dest is None:
+            return 150.0
 
-          t = self._parent.travelTime(orig, dest)
-          if t < 0:
-              return 147.3  # same fallback, rough estimate
+        # 2. Calculate driving time (Live Mileage)
+        time_to_drive = self._parent.travelTime(orig, dest)
 
-          # quick adjustment for underpriced short trips
-          base = 43.8
-          rate = 2.17
-          est = base + (t * rate)
-          if est < 55:
-              est += 4.25  # bump short fares slightly
+        # Safety check for pathfinding errors
+        if time_to_drive < 0:
+            return 150.0
 
-          return round(est, 2)
+        #The New "Profitable" Pricing Formula
+        base_fare = 75.0      # Raised from 43.8 to cover the pickup cost
+        rate_per_min = 3.50   # Raised from 2.17 to ensure profit on the trip
+
+        price = base_fare + (time_to_drive * rate_per_min)
+
+        return round(price, 2)
 
       # TODO
       # this method decides which taxi to allocate to a given fare. The algorithm here is not a fair allocation
