@@ -224,37 +224,40 @@ class Dispatcher:
           fare_entry = self._fareBoard[origin][destination][time]
           bidders = fare_entry.bidders
 
-          current_time = self._parent.simTime
-          time_waiting = current_time - time
+          sim_now = self._parent.simTime
+          waited_time = sim_now - time
 
-          # Proceed if we have enough bidders or have waited long enough
+          if len(bidders) < 3:
+              if waited_time <= 10:
+                  return
+              if not bidders:
+                  return
 
-          if len(bidders) < 3 and (time_waiting <= 10 or not bidders):
-              return
 
           fare_node = self._parent.getNode(origin[0], origin[1])
           if fare_node is None:
               return
 
-          best_taxi = -1
-          min_dist = float('inf')
+          min_dist = 999999
+          chosen_taxi = None
 
-          for taxi_idx in bidders:
-              # Defensive check: ensure taxi index exists
-              if taxi_idx >= len(self._taxis):
+          for i in bidders:
+              if i >= len(self._taxis):
                   continue
 
-              taxi = self._taxis[taxi_idx]
+              taxi = self._taxis[i]
               loc = taxi.currentLocation
               taxi_node = self._parent.getNode(loc[0], loc[1])
 
-              if taxi_node:
-                  dist = self._parent.distance2Node(taxi_node, fare_node)
-                  # Optimization: Pick the closest taxi to minimize fuel cost
-                  if dist < min_dist:
-                      min_dist = dist
-                      best_taxi = taxi_idx
+              if not taxi_node:
+                  continue
 
-          if best_taxi != -1:
-              fare_entry.taxi = best_taxi
-              self._parent.allocateFare(origin, self._taxis[best_taxi])
+              dist = self._parent.distance2Node(taxi_node, fare_node)
+
+              if dist < min_dist:
+                  min_dist = dist
+                  chosen_taxi = i
+
+          if chosen_taxi is not None:
+              fare_entry.taxi = chosen_taxi
+              self._parent.allocateFare(origin, self._taxis[chosen_taxi])
